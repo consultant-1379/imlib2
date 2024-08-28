@@ -1,0 +1,30 @@
+version: '3.7'
+services:
+  rhel8:
+    build:
+      context: ./builder
+      dockerfile: Dockerfile_local_user_builder
+      args:
+        - GROUP_ID=${GROUP_ID}
+        - GROUP_NAME=${GROUP_NAME}
+        - USER_ID=${USER_ID}
+        - USER_NAME=${USER_NAME}
+        - IMAGE_PATH=${IMAGE_REPOSITORY}/rhel8:${IMAGE_TAG}
+    container_name: ${BUILD_FOLDER}_rhel8
+    hostname: ${BUILD_FOLDER}_rhel8
+    environment:
+    - MAVEN_CONFIG=/home/$USER/.m2
+    - USER
+    - HOME
+    - PWD=/home/$USER
+    - IMAGE_REPOSITORY
+    - IMAGE_TAG
+    - WORKDIR
+    - BUILD_FOLDER
+    volumes:
+    - ${HOME}/.m2:/home/$USER/.m2
+    - ${WORKDIR}/:/home/$USER/
+    - ${HOME}/.ssh:/home/$USER/.ssh
+    command: $HOME/execute_build.sh rhel8
+    init: true
+    tty: true

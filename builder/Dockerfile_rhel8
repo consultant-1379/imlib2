@@ -1,0 +1,40 @@
+FROM armdocker.rnd.ericsson.se/redhat-ericsson-remote/ubi8:8.8
+
+## add base repo and install JDK used in ENM
+RUN dnf repolist --all && \
+dnf config-manager --set-disabled '*' && \
+rpm --import https://arm.sero.gic.ericsson.se/artifactory/proj-redhat-repos-rpm-local/iso/rhel-server-8.8/rhel-8.8-x86_64-dvd/RPM-GPG-KEY-redhat-release && \
+rpm --import https://arm.sero.gic.ericsson.se/artifactory/rpm-centos-remote/RPM-GPG-KEY-CentOS-Official && \
+dnf config-manager --add-repo https://arm.sero.gic.ericsson.se/artifactory/proj-redhat-repos-rpm-local/repos/rhel-x86_64-baseos-8.8 && \
+dnf config-manager --add-repo https://arm.sero.gic.ericsson.se/artifactory/proj-redhat-repos-rpm-local/repos/rhel-x86_64-appstream-8.8 && \
+dnf config-manager --add-repo https://arm.sero.gic.ericsson.se/artifactory/proj-redhat-repos-rpm-local/repos/rhel-x86_64-codeready-builder-8 && \
+dnf config-manager --add-repo https://arm.sero.gic.ericsson.se/artifactory/rpm-centos-remote/8-stream/extras/x86_64/os
+
+## instead of sourcing from main ISO, we explicitly install it from nexus
+ARG ENM_JRE=https://arm1s11-eiffel004.eiffel.gic.ericsson.se:8443/nexus/content/repositories/litp_releases/com/ericsson/nms/litp/EXTRserverjre_CXP9035480/2.10.1/EXTRserverjre_CXP9035480-2.10.1.rpm
+ARG RHEL8_PYCOMPAT=https://arm1s11-eiffel004.eiffel.gic.ericsson.se:8443/nexus/content/repositories/releases/com/ericsson/oss/itpf/common/ERICrhel8pycompat_CXP9043870/1.0.3/ERICrhel8pycompat_CXP9043870-1.0.3.rpm
+
+RUN dnf -y update && \
+    dnf -y install python3 libX11 tar iputils vim gawk sudo $RHEL8_PYCOMPAT \
+            openssh curl git gcc-c++ gzip rpm-build cmake $ENM_JRE \
+            gcc libtiff-devel libX11-devel freetype-devel libjpeg-turbo-devel libpng-devel \ 
+            bzip2-devel libXext-devel giflib-devel epel-release && \
+    dnf clean all
+
+RUN dnf -y install libid3tag-devel && dnf clean all
+## copy downloaded maven
+COPY apache-maven.tar.gz /tmp
+
+RUN mkdir -p /usr/share/maven && \
+tar -xf /tmp/apache-maven.tar.gz -C /usr/share/maven --strip-components=1 && \
+ln -s /usr/share/maven/bin/mvn /usr/bin/maven
+
+ENV MAVEN_HOME /usr/share/maven
+ENV JAVA_HOME=/usr/java/latest
+ 
+# copy ENM maven settings.xml to the builder
+COPY settings.xml /usr/share/maven/conf
+
+# clean all packages cache
+RUN dnf clean all
+RUN rm -rf /var/cache/dnf # otherwise the image becomes 1.6GB, as cache contains nearly 900MB
